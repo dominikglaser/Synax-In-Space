@@ -1,0 +1,25 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+.DS_Store
+*.log
+.env
+.env.local
+coverage/
+.idea/
+.vscode/
+
+# Downloaded asset packs (large files, can be re-downloaded)
+assets/kenney/
+assets/audio/sfx/sonniss/
+assets/audio/sfx/kenney/
+tools/bmfont/
+tools/texturepacker/
+tools/tiled/
+tools/aseprite/
+
+# Keep generated assets
+!assets/generated/
+
+

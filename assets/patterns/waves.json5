@@ -1,0 +1,37 @@
+[
+  {
+    t0: 3000,
+    duration: 6000,
+    enemy: "sine-flyer",
+    count: 8,
+    formation: "sine",
+    pattern: {
+      name: "fan-7",
+      repeat: 3,
+      spawnEveryMs: 900,
+      bullets: [
+        { speed: 180, angleDeg: 180, lifeMs: 5000 },
+        { speed: 180, angleDeg: 160, lifeMs: 5000 },
+        { speed: 180, angleDeg: 200, lifeMs: 5000 }
+      ]
+    }
+  },
+  {
+    t0: 12000,
+    duration: 8000,
+    enemy: "turret",
+    count: 5,
+    formation: "line",
+    pattern: {
+      name: "spiral-24",
+      repeat: 8,
+      spawnEveryMs: 400,
+      bullets: [
+        { speed: 220, angleDeg: 180, lifeMs: 6000 },
+        { speed: 220, angleDeg: 195, lifeMs: 6000 },
+        { speed: 220, angleDeg: 165, lifeMs: 6000 }
+      ]
+    }
+  }
+]
+
