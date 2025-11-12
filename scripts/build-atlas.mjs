@@ -5,16 +5,31 @@
  */
 
 import { readdir, stat } from 'fs/promises';
-import { join } from 'path';
+import { join, resolve, normalize } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 
-const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '..');
+
+/**
+ * Execute command using spawn for security (prevents command injection)
+ */
+function execSpawn(command, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(command, args, {
+      stdio: 'inherit',
+      ...options
+    });
+    proc.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`Command exited with code ${code}`));
+    });
+    proc.on('error', reject);
+  });
+}
 
 const rawSpritesDir = join(projectRoot, 'assets', 'raw', 'sprites');
 const atlasDir = join(projectRoot, 'assets', 'generated', 'atlases');
@@ -47,9 +62,18 @@ async function buildAtlas() {
   // Try spritesheet-js first
   try {
     console.log('Trying spritesheet-js...');
-    await execAsync(`spritesheet-js assets/raw/sprites/**/*.png --format json --name game --path assets/generated/atlases --algorithm binary-tree --max-size 2048 --dpi 72`, {
-      cwd: projectRoot,
-    });
+    // Use spawn with array arguments to prevent command injection
+    const rawSpritesPath = join(projectRoot, 'assets', 'raw', 'sprites', '**', '*.png');
+    const atlasPath = join(projectRoot, 'assets', 'generated', 'atlases');
+    await execSpawn('spritesheet-js', [
+      rawSpritesPath,
+      '--format', 'json',
+      '--name', 'game',
+      '--path', atlasPath,
+      '--algorithm', 'binary-tree',
+      '--max-size', '2048',
+      '--dpi', '72'
+    ], { cwd: projectRoot });
     console.log('✓ Atlas built successfully with spritesheet-js');
     return;
   } catch (error) {

@@ -11,13 +11,25 @@
  */
 
 import { readdir, stat, copyFile, mkdir } from 'fs/promises';
-import { join, extname } from 'path';
+import { join, extname, resolve, normalize } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '..');
+
+/**
+ * Sanitize file path to prevent path traversal attacks
+ */
+function sanitizePath(filePath, baseDir) {
+  const resolved = resolve(baseDir, filePath);
+  const normalized = normalize(resolved);
+  if (!normalized.startsWith(resolve(baseDir))) {
+    throw new Error('Path traversal detected');
+  }
+  return normalized;
+}
 
 const ASSET_MAP = {
   ships: 'assets/kenney/ships',
@@ -33,16 +45,17 @@ const ASSET_MAP = {
   ambience: 'assets/audio/ambience',
 };
 
-async function copyRecursive(src, dest) {
+async function copyRecursive(src, dest, baseSrc, baseDest) {
   const entries = await readdir(src, { withFileTypes: true });
   
   for (const entry of entries) {
-    const srcPath = join(src, entry.name);
-    const destPath = join(dest, entry.name);
+    // Sanitize paths to prevent path traversal
+    const srcPath = sanitizePath(join(src, entry.name), baseSrc);
+    const destPath = sanitizePath(join(dest, entry.name), baseDest);
     
     if (entry.isDirectory()) {
       await mkdir(destPath, { recursive: true });
-      await copyRecursive(srcPath, destPath);
+      await copyRecursive(srcPath, destPath, baseSrc, baseDest);
     } else {
       // Only copy image and audio files
       const ext = extname(entry.name).toLowerCase();
@@ -63,20 +76,30 @@ async function organizeAssets(sourceDir, assetType) {
     process.exit(1);
   }
 
+  // Sanitize source directory path to prevent path traversal
+  let sanitizedSourceDir;
+  try {
+    sanitizedSourceDir = sanitizePath(sourceDir, '/');
+  } catch (error) {
+    console.error(`Invalid source path: ${error.message}`);
+    process.exit(1);
+  }
+
   const destDir = join(projectRoot, ASSET_MAP[assetType]);
   
   try {
-    const srcStats = await stat(sourceDir);
+    const srcStats = await stat(sanitizedSourceDir);
     if (!srcStats.isDirectory()) {
-      console.error(`Source path is not a directory: ${sourceDir}`);
+      console.error(`Source path is not a directory: ${sanitizedSourceDir}`);
       process.exit(1);
     }
 
-    console.log(`Organizing assets from: ${sourceDir}`);
+    console.log(`Organizing assets from: ${sanitizedSourceDir}`);
     console.log(`Destination: ${destDir}`);
     
     await mkdir(destDir, { recursive: true });
-    await copyRecursive(sourceDir, destDir);
+    // Pass base directories for path traversal protection
+    await copyRecursive(sanitizedSourceDir, destDir, sanitizedSourceDir, resolve(projectRoot));
     
     console.log('\n✓ Assets organized successfully!');
     console.log(`\nNext steps:`);
