@@ -59,28 +59,7 @@ async function buildAtlas() {
     return;
   }
   
-  // Try spritesheet-js first
-  try {
-    console.log('Trying spritesheet-js...');
-    // Use spawn with array arguments to prevent command injection
-    const rawSpritesPath = join(projectRoot, 'assets', 'raw', 'sprites', '**', '*.png');
-    const atlasPath = join(projectRoot, 'assets', 'generated', 'atlases');
-    await execSpawn('spritesheet-js', [
-      rawSpritesPath,
-      '--format', 'json',
-      '--name', 'game',
-      '--path', atlasPath,
-      '--algorithm', 'binary-tree',
-      '--max-size', '2048',
-      '--dpi', '72'
-    ], { cwd: projectRoot });
-    console.log('✓ Atlas built successfully with spritesheet-js');
-    return;
-  } catch (error) {
-    console.log('spritesheet-js failed (ImageMagick may be missing)');
-  }
-  
-  // Try alternative: use sharp if available
+  // Try using sharp (modern, secure alternative)
   try {
     console.log('Trying alternative method with sharp...');
     const { default: sharp } = await import('sharp');
