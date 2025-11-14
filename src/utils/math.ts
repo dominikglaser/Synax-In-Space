@@ -12,10 +12,10 @@ export function aabbCollision(
   b: CollisionBounds
 ): boolean {
   return (
-    a.x < b.x + b.width &&
-    a.x + a.width > b.x &&
-    a.y < b.y + b.height &&
-    a.y + a.height > b.y
+    a.x <= b.x + b.width &&
+    a.x + a.width >= b.x &&
+    a.y <= b.y + b.height &&
+    a.y + a.height >= b.y
   );
 }
 
@@ -42,7 +42,7 @@ export function circleCollision(a: CircleBounds, b: CircleBounds): boolean {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
-  return distance < a.radius + b.radius;
+  return distance <= a.radius + b.radius;
 }
 
 /**

@@ -3,7 +3,6 @@
  */
 
 import Phaser from 'phaser';
-import UIPlugin from 'phaser3-rex-plugins/templates/ui/ui-plugin.js';
 
 export interface HUDData {
   score: number;
@@ -28,7 +27,6 @@ export class HUD {
   }
 
   private create(): void {
-    const { width } = this.scene.scale;
     const padding = 20;
     const style: Phaser.Types.GameObjects.Text.TextStyle = {
       fontSize: '16px',

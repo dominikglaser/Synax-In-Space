@@ -15,7 +15,7 @@ export class RNG {
    * Random float between 0 and 1
    */
   float(): number {
-    return this.rng.quick();
+    return (this.rng as any).quick() as number;
   }
 
   /**

@@ -92,6 +92,8 @@ export class MusicSystem {
 
       if (this.audioContext.state === 'suspended') {
         this.audioContext.resume().catch((err) => {
+          // Log error but don't block playback
+          console.warn('Failed to resume audio context:', err);
         });
       }
 
@@ -115,6 +117,8 @@ export class MusicSystem {
       this.scheduleLoop();
     } catch (error) {
       this.isPlaying = false;
+      // Log error for debugging
+      console.error('MusicSystem.playTheme error:', error);
     }
   }
 
@@ -127,6 +131,15 @@ export class MusicSystem {
       
       if (this.audioContext.state === 'closed') {
         this.isPlaying = false;
+        return;
+      }
+      
+      // Handle suspended state
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume().catch((err) => {
+          console.warn('Failed to resume audio context in scheduleLoop:', err);
+          this.isPlaying = false;
+        });
         return;
       }
 
@@ -163,7 +176,7 @@ export class MusicSystem {
       }
 
       if (this.isPlaying) {
-        this.scheduleInterval = setTimeout(() => {
+        this.scheduleInterval = window.setTimeout(() => {
           if (this.isPlaying) {
             this.scheduleLoop();
           }
@@ -245,7 +258,7 @@ export class MusicSystem {
   /**
    * Schedule Voice 3 (FX/Arp/Drums) - Implemented according to spec
    */
-  private scheduleVoice3(theme: MusicTheme, time: number, beatPosition: number, secondsPerBeat: number, tempo: number): void {
+  private scheduleVoice3(theme: MusicTheme, time: number, beatPosition: number, secondsPerBeat: number, _tempo: number): void {
     if (!this.audioContext || !this.voice3Gain) return;
 
     const beat = Math.floor(beatPosition);
@@ -460,7 +473,11 @@ export class MusicSystem {
    * -32 = 32nd note (0.125 beats)
    */
   private getThemeConfig(theme: MusicTheme): any {
-    const C1 = 32.70, G1 = 49.00, Ab1 = 51.91, F1 = 43.65, Bb0 = 29.14;
+    // C1, F1, Bb0 available if needed in future
+    // const C1 = 32.70;
+    const G1 = 49.00, Ab1 = 51.91;
+    // const F1 = 43.65;
+    // const Bb0 = 29.14;
     const C2 = 65.41, G2 = 98.00, Ab2 = 103.83, F2 = 87.31;
     const Bb1 = 58.27;
     const C3 = 130.81, Eb3 = 155.56, F3 = 174.61, G3 = 196.00, Ab3 = 207.65;

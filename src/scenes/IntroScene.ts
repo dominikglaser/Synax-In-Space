@@ -212,7 +212,7 @@ export class IntroScene extends Phaser.Scene {
     });
   }
 
-  update(time: number, delta: number): void {
+  update(_time: number, delta: number): void {
     // Update Kennys
     const { width, height } = this.cameras.main;
     KennyEasterEgg.updateKennys(this, width, height, delta, this.kennys);
@@ -251,7 +251,7 @@ export class IntroScene extends Phaser.Scene {
       // Define vanishing point - where text completely disappears (above screen)
       const vanishingPointY = -height; // One screen height above top
       const bottomY = height; // Bottom of screen
-      const midpointY = height / 2; // Midpoint of screen
+      // const midpointY = height / 2; // Midpoint of screen (currently unused)
       
       // Normalize Y position: 0 = vanishing point (disappears), 1 = bottom of screen
       // Text can go negative (above screen) to create the disappearing effect
@@ -417,15 +417,18 @@ export class IntroScene extends Phaser.Scene {
       musicSystem.stop();
       
       // Stop all other music sounds to ensure clean audio state
-      const allSounds = this.sound.sounds;
-      allSounds.forEach((sound) => {
-        if (sound.key === 'storyMusic' || sound.key === 'menuMusic' || 
-            sound.key === 'gameplayMusic' || sound.key === 'victoryMusic' || 
-            sound.key === 'gameOverMusic') {
-          sound.stop();
-          sound.destroy();
-        }
-      });
+      const soundManager = this.sound as Phaser.Sound.BaseSoundManager;
+      if ('sounds' in soundManager && Array.isArray((soundManager as any).sounds)) {
+        const allSounds = (soundManager as any).sounds as Phaser.Sound.BaseSound[];
+        allSounds.forEach((sound: Phaser.Sound.BaseSound) => {
+          if (sound.key === 'storyMusic' || sound.key === 'menuMusic' || 
+              sound.key === 'gameplayMusic' || sound.key === 'victoryMusic' || 
+              sound.key === 'gameOverMusic') {
+            sound.stop();
+            sound.destroy();
+          }
+        });
+      }
       
       // Stop all tweens to prevent them from continuing to render
       this.tweens.killAll();

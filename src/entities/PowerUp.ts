@@ -3,7 +3,8 @@
  */
 
 import Phaser from 'phaser';
-import { BALANCER } from '../systems/Balancer';
+// BALANCER available if needed for future balance adjustments
+// import { BALANCER } from '../systems/Balancer';
 import type { PowerUpType } from '../types';
 import { getKenneySprite } from '../config/AssetMappings';
 
@@ -58,7 +59,7 @@ export class PowerUp extends Phaser.GameObjects.Sprite {
   /**
    * Update power-up position (scrolling handled by GameScene)
    */
-  update(delta: number): void {
+  update(_delta: number): void {
     // Scrolling is handled by GameScene to support boss fight pausing
     // Remove if off screen
     if (this.x < -100) {

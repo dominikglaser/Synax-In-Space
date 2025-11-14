@@ -13,9 +13,11 @@ import { HUDScene } from './scenes/HUDScene';
 import { PauseScene } from './scenes/PauseScene';
 import { EndScene } from './scenes/EndScene';
 import { DeathScene } from './scenes/DeathScene';
+import { logger } from './utils/logger';
 
-console.log('%cSYNAX IN SPACE', 'font-size: 24px; font-weight: bold; color: #00ffff;');
-console.log('Phaser 3 + TypeScript Side-Scrolling Shooter');
+// Log game startup (only in development)
+logger.debug('%cSYNAX IN SPACE', 'font-size: 24px; font-weight: bold; color: #00ffff;');
+logger.info('Phaser 3 + TypeScript Side-Scrolling Shooter');
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -39,6 +41,7 @@ const config: Phaser.Types.Core.GameConfig = {
   },
 };
 
-const game = new Phaser.Game(config);
+// Game instance created (stored globally by Phaser)
+new Phaser.Game(config);
 
 

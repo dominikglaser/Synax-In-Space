@@ -7,6 +7,7 @@ import { getKenneySprite } from '../config/AssetMappings';
 import { musicSystem, MusicTheme } from '../systems/MusicSystem';
 import { sceneLogger } from '../utils/SceneLogger';
 import { KennyEasterEgg } from '../utils/KennyEasterEgg';
+import { ErrorHandler } from '../utils/errorHandler';
 
 
 export class EndScene extends Phaser.Scene {
@@ -382,38 +383,51 @@ export class EndScene extends Phaser.Scene {
         
         // Check scene states after transition
         setTimeout(() => {
-          if ((window as any).sceneLogger) {
-            (window as any).sceneLogger.checkSceneStates(this.game);
+          if (window.sceneLogger) {
+            window.sceneLogger.checkSceneStates(this.game);
           }
         }, 100);
       } catch (error) {
-        sceneLogger.logError('EndScene', 'MENU_TRANSITION_ERROR', error);
-        this.isTransitioning = false;
+        ErrorHandler.handleError('EndScene.menuTransition', error, {
+          logToScene: true,
+          logToConsole: true,
+          rethrow: false,
+          fallback: () => {
+            this.isTransitioning = false;
+          },
+        });
       }
     });
         }
       } catch (error) {
-        sceneLogger.logError('EndScene', 'INPUT_HANDLER_ERROR', error);
+        ErrorHandler.handleError('EndScene.inputHandler', error, {
+          logToScene: true,
+          logToConsole: true,
+          rethrow: false,
+        });
       }
       
       sceneLogger.log('EndScene', 'CREATE_COMPLETE');
     } catch (error) {
-      sceneLogger.logError('EndScene', 'CREATE_FATAL_ERROR', error);
-      // Try to at least show some error message to the user
-      try {
-        const { width, height } = this.cameras.main;
-        this.add
-          .text(width / 2, height / 2, 'Error loading win screen. Check console for details.', {
-            fontSize: '24px',
-            color: '#ff0000',
-            fontFamily: 'monospace',
-          })
-          .setOrigin(0.5)
-          .setDepth(1000);
-      } catch (e) {
-        // Even error message creation failed
-        sceneLogger.logError('EndScene', 'ERROR_MESSAGE_FAILED', e);
-      }
+      ErrorHandler.handleError('EndScene.create', error, {
+        logToScene: true,
+        logToConsole: true,
+        rethrow: false,
+        fallback: () => {
+          // Try to at least show some error message to the user
+          ErrorHandler.executeSync('EndScene.create.errorMessage', () => {
+            const { width, height } = this.cameras.main;
+            this.add
+              .text(width / 2, height / 2, 'Error loading win screen. Check console for details.', {
+                fontSize: '24px',
+                color: '#ff0000',
+                fontFamily: 'monospace',
+              })
+              .setOrigin(0.5)
+              .setDepth(1000);
+          });
+        },
+      });
     }
   }
 
@@ -1134,7 +1148,7 @@ export class EndScene extends Phaser.Scene {
     });
   }
 
-  update(time: number, delta: number): void {
+  update(_time: number, delta: number): void {
     const { width, height } = this.cameras.main;
     
     // Update Kennys (always update, even if transitioning)

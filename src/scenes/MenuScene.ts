@@ -4,11 +4,15 @@
 
 import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config/constants';
-import { RNG } from '../systems/RNG';
+// RNG available if needed in future
+// import { RNG } from '../systems/RNG';
 import { musicSystem, MusicTheme } from '../systems/MusicSystem';
 import { sceneLogger } from '../utils/SceneLogger';
 import { MenuSceneDebugger } from '../utils/MenuSceneDebugger';
 import { KennyEasterEgg } from '../utils/KennyEasterEgg';
+import { validateSeed } from '../utils/inputValidation';
+import { logger } from '../utils/logger';
+import { ErrorHandler } from '../utils/errorHandler';
 
 // Global god mode state (accessible from GameScene)
 let globalGodMode: boolean = false;
@@ -25,15 +29,18 @@ export function setGodMode(enabled: boolean): void {
 
 export class MenuScene extends Phaser.Scene {
   private seed: number = GAME_CONFIG.defaultSeed;
-  private rng: RNG = new RNG(GAME_CONFIG.defaultSeed);
+  // RNG available if needed for future menu randomization
+  // private rng: RNG = new RNG(GAME_CONFIG.defaultSeed);
   private seedText?: Phaser.GameObjects.Text;
   private seedBox?: Phaser.GameObjects.Graphics;
-  private seedBoxText?: Phaser.GameObjects.Text;
+  // seedBoxText available if needed in future
+  // private seedBoxText?: Phaser.GameObjects.Text;
   private reseedText?: Phaser.GameObjects.Text;
   private forceFieldGraphics?: Phaser.GameObjects.Graphics;
   private forceFieldPulseTime: number = 0;
-  private titleGlareGraphics?: Phaser.GameObjects.Graphics;
-  private titleGlareTime: number = 0;
+  // titleGlareGraphics available if needed in future
+  // private titleGlareGraphics?: Phaser.GameObjects.Graphics;
+  // private titleGlareTime: number = 0;
   private meteorites: Array<{
     sprite: Phaser.GameObjects.Sprite;
     vx: number;
@@ -211,11 +218,13 @@ export class MenuScene extends Phaser.Scene {
     });
     
     // Final renderer check before creating objects
-    const renderer = this.game.renderer as any;
-    const gl = renderer?.gl;
-    if (!renderer || !gl || !gl.canvas || (gl.isContextLost && gl.isContextLost())) {
+    const renderer = this.game.renderer;
+    const webglRenderer = renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer ? renderer : null;
+    const gl = webglRenderer?.gl;
+    if (!renderer || !webglRenderer || !gl || !gl.canvas || (gl.isContextLost && gl.isContextLost())) {
       MenuSceneDebugger.logError('RENDERER_CHECK_FAILED_IN_CREATE', {
         renderer: !!renderer,
+        webglRenderer: !!webglRenderer,
         gl: !!gl,
         canvas: !!gl?.canvas,
         contextLost: gl?.isContextLost ? gl.isContextLost() : 'unknown',
@@ -282,14 +291,17 @@ export class MenuScene extends Phaser.Scene {
         
         // Stop any other music sounds that might be playing from previous scenes
         // This ensures clean audio state when returning from story or other scenes
-        const allSounds = this.sound.sounds;
-        allSounds.forEach((sound) => {
-          if (sound.key === 'storyMusic' || sound.key === 'gameplayMusic' || 
-              sound.key === 'victoryMusic' || sound.key === 'gameOverMusic') {
-            sound.stop();
-            sound.destroy();
-          }
-        });
+        const soundManager = this.sound as Phaser.Sound.BaseSoundManager;
+        if ('sounds' in soundManager && Array.isArray((soundManager as any).sounds)) {
+          const allSounds = (soundManager as any).sounds as Phaser.Sound.BaseSound[];
+          allSounds.forEach((sound: Phaser.Sound.BaseSound) => {
+            if (sound.key === 'storyMusic' || sound.key === 'gameplayMusic' || 
+                sound.key === 'victoryMusic' || sound.key === 'gameOverMusic') {
+              sound.stop();
+              sound.destroy();
+            }
+          });
+        }
         
         // Small delay to ensure previous sounds are fully stopped
         this.time.delayedCall(100, () => {
@@ -1538,17 +1550,17 @@ export class MenuScene extends Phaser.Scene {
       const expansion = (maxExpansion * (layerIndex + 1)) / totalLayers;
       
       // Position glow text with slight offset to create glow effect
-      // Use multiple offsets to create glow around entire text
-      const offsets = [
-        { x: -expansion, y: -expansion }, // Top-left
-        { x: expansion, y: -expansion },  // Top-right
-        { x: -expansion, y: expansion },  // Bottom-left
-        { x: expansion, y: expansion },   // Bottom-right
-        { x: 0, y: -expansion },         // Top
-        { x: 0, y: expansion },          // Bottom
-        { x: -expansion, y: 0 },         // Left
-        { x: expansion, y: 0 },          // Right
-      ];
+      // Use multiple offsets to create glow around entire text (currently unused)
+      // const offsets = [
+      //   { x: -expansion, y: -expansion }, // Top-left
+      //   { x: expansion, y: -expansion },  // Top-right
+      //   { x: -expansion, y: expansion },  // Bottom-left
+      //   { x: expansion, y: expansion },   // Bottom-right
+      //   { x: 0, y: -expansion },         // Top
+      //   { x: 0, y: expansion },          // Bottom
+      //   { x: -expansion, y: 0 },         // Left
+      //   { x: expansion, y: 0 },          // Right
+      // ];
       
       // For this layer, create multiple copies at different offsets
       // Use blend mode for additive glow
@@ -1575,7 +1587,7 @@ export class MenuScene extends Phaser.Scene {
     const offsets: Array<{ x: number; y: number }> = [];
     
     // Create offsets in a grid pattern around the text
-    const gridSize = 5; // 5x5 grid = 25 positions (but we'll use fewer)
+    // const gridSize = 5; // 5x5 grid = 25 positions (currently unused)
     const step = maxExpansion / 2;
     
     // Generate offsets in all directions
@@ -1616,7 +1628,7 @@ export class MenuScene extends Phaser.Scene {
   /**
    * Update scene - animate force field and meteorites
    */
-  update(time: number, delta: number): void {
+  update(_time: number, delta: number): void {
     // CRITICAL: Don't run update logic until main content is created
     // Check if background exists (indicates createMenuContent completed successfully)
     const background = this.children.list.find((child: any) => 
@@ -1643,11 +1655,12 @@ export class MenuScene extends Phaser.Scene {
     }
     
     // Verify background is visible and active
-    if (background && (!background.visible || !background.active)) {
+    const bg = background as Phaser.GameObjects.GameObject & { visible?: boolean; active?: boolean; alpha?: number };
+    if (bg && ((bg.visible !== undefined && !bg.visible) || (bg.active !== undefined && !bg.active))) {
       MenuSceneDebugger.logError('BACKGROUND_NOT_VISIBLE_OR_ACTIVE', {
-        visible: background.visible,
-        active: background.active,
-        alpha: background.alpha,
+        visible: bg.visible,
+        active: bg.active,
+        alpha: bg.alpha,
       });
     }
     
@@ -1902,21 +1915,29 @@ export class MenuScene extends Phaser.Scene {
         }
       }, 100);
     } catch (error) {
-      sceneLogger.logError('MenuScene', 'START_GAME_ERROR', error);
-      
-      // Even if there's an error, try to start the game scene anyway
-      // This ensures the game can still start even if cleanup fails
-      try {
-        sceneLogger.log('MenuScene', 'ATTEMPTING_RECOVERY_START', 'Trying to start GameScene despite error');
-        this.scene.start('GameScene', { seed: this.seed });
-        sceneLogger.log('MenuScene', 'RECOVERY_START_SUCCESS', 'GameScene started despite error');
-      } catch (recoveryError) {
-        sceneLogger.logError('MenuScene', 'RECOVERY_START_FAILED', recoveryError);
-        // Restore camera visibility in case of complete failure
-        this.cameras.main.setVisible(true);
-      }
-      
-      this.isTransitioning = false;
+      ErrorHandler.handleError('MenuScene.startGame', error, {
+        logToScene: true,
+        logToConsole: true,
+        rethrow: false,
+        fallback: () => {
+          // Even if there's an error, try to start the game scene anyway
+          // This ensures the game can still start even if cleanup fails
+          ErrorHandler.executeSync('MenuScene.startGame.recovery', () => {
+            sceneLogger.log('MenuScene', 'ATTEMPTING_RECOVERY_START', 'Trying to start GameScene despite error');
+            this.scene.start('GameScene', { seed: this.seed });
+            sceneLogger.log('MenuScene', 'RECOVERY_START_SUCCESS', 'GameScene started despite error');
+          }, undefined);
+          
+          // Restore camera visibility in case of complete failure
+          try {
+            this.cameras.main.setVisible(true);
+          } catch {
+            // Ignore camera errors during recovery
+          }
+          
+          this.isTransitioning = false;
+        },
+      });
     }
   }
 
@@ -1960,8 +1981,17 @@ export class MenuScene extends Phaser.Scene {
 
   private reseed(): void {
     // Generate new random seed
-    this.seed = Math.floor(Math.random() * 1000000);
-    this.rng = new RNG(this.seed); // Create new RNG instance with new seed
+    const newSeed = Math.floor(Math.random() * 1000000);
+    // Validate seed value
+    try {
+      this.seed = validateSeed(newSeed);
+    } catch (error) {
+      // Fallback to default seed if validation fails
+      logger.warn('Seed validation failed, using default:', error);
+      this.seed = GAME_CONFIG.defaultSeed;
+    }
+    // RNG available if needed for future menu randomization
+    // this.rng = new RNG(this.seed);
     if (this.seedText) {
       this.seedText.setText(`Seed: ${this.seed}`);
     }
@@ -2180,11 +2210,9 @@ export class MenuScene extends Phaser.Scene {
     // Remove all timers
     this.time.removeAllEvents();
     
-    // Clean up global keyboard handler
-    if ((this as any)._globalKeyHandler) {
-      window.removeEventListener('keydown', (this as any)._globalKeyHandler, true);
-      (this as any)._globalKeyHandler = undefined;
-    }
+    // Clean up global keyboard handler (if exists)
+    // Note: MenuScene doesn't currently use a global key handler, but this is here for future use
+    // If a global handler is added, it should be stored in a WeakMap or similar to avoid prototype pollution
     
     // Clean up resources
     if (this.menuMusic) {
@@ -2195,9 +2223,9 @@ export class MenuScene extends Phaser.Scene {
     
     // Clear references to prevent memory leaks
     this.forceFieldGraphics = undefined;
-    this.station = undefined;
-    this.storyButton = undefined;
-    this.titleText = undefined;
+    // station, titleText available if needed in future
+    // this.station = undefined;
+    // this.titleText = undefined;
     this.storyGlowTexts = [];
     
     // Clear all children

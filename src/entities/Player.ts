@@ -164,8 +164,6 @@ export class Player extends Phaser.GameObjects.Sprite {
    * Update player state
    */
   update(delta: number): void {
-    const deltaSeconds = delta / 1000;
-
     // Update shield timer
     if (this.shieldTimer > 0) {
       this.shieldTimer -= delta;

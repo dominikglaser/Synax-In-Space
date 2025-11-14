@@ -13,13 +13,16 @@ export interface DepthObject {
 
 export class DepthOfFieldSystem {
   private objects: DepthObject[] = [];
-  private scene: Phaser.Scene;
+  // Scene available if needed in future
+  // private scene: Phaser.Scene;
   private cameraDepth: number = 10; // Objects at depth 10 (player) are in focus
   private blurRange: number = 20; // Depth range for blur effect (increased)
-  private maxBlur: number = 3; // Maximum blur amount
+  // Max blur available if needed in future
+  // private maxBlur: number = 3; // Maximum blur amount
 
-  constructor(scene: Phaser.Scene) {
-    this.scene = scene;
+  constructor(_scene: Phaser.Scene) {
+    // Scene stored if needed in future
+    // this.scene = scene;
   }
 
   /**
@@ -66,7 +69,8 @@ export class DepthOfFieldSystem {
     const depthDiff = Math.abs(depth - this.cameraDepth);
     
     // Calculate blur amount based on distance from camera depth
-    const blurAmount = Math.min((depthDiff / this.blurRange) * this.maxBlur, this.maxBlur);
+    // Blur amount available if needed in future
+    // const blurAmount = Math.min((depthDiff / this.blurRange) * this.maxBlur, this.maxBlur);
     
     // Calculate scale based on depth (objects farther appear smaller)
     // Much more subtle effect - only apply to background objects far from camera

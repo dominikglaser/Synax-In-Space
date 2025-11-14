@@ -2,6 +2,8 @@
  * Scene transition logging system for debugging performance issues
  */
 
+import { sanitizeErrorMessage, sanitizeErrorData, isProduction } from './errorSanitizer';
+
 class SceneLogger {
   private logs: Array<{
     timestamp: number;
@@ -41,8 +43,14 @@ class SceneLogger {
   }
 
   logError(scene: string, error: string, details?: any): void {
-    console.error(`[SceneLogger ERROR] ${scene} - ${error}`, details);
-    this.log(scene, `ERROR: ${error}`, details);
+    const sanitizedError = sanitizeErrorMessage(error, false);
+    const sanitizedDetails = details ? sanitizeErrorData(details) : undefined;
+    
+    // Only log to console in development or for critical errors
+    if (!isProduction()) {
+      console.error(`[SceneLogger ERROR] ${scene} - ${sanitizedError}`, sanitizedDetails);
+    }
+    this.log(scene, `ERROR: ${sanitizedError}`, sanitizedDetails);
   }
 
   getLogs(): Array<{ timestamp: number; scene: string; event: string; data?: any }> {
@@ -93,6 +101,6 @@ export const sceneLogger = new SceneLogger();
 
 // Make it available globally for debugging
 if (typeof window !== 'undefined') {
-  (window as any).sceneLogger = sceneLogger;
+  window.sceneLogger = sceneLogger;
 }
 

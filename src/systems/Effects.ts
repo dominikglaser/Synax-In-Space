@@ -59,7 +59,17 @@ export const easing = {
  * Apply hit flash tint to a color
  */
 export function hitFlashTint(base: number, amount = 0.35): number {
-  const c = colord(`#${base.toString(16).padStart(6, '0')}`).mix('#ffffff', amount);
+  // Manual color mixing since colord v2 doesn't have mix/interpolate
+  const baseColor = colord(`#${base.toString(16).padStart(6, '0')}`);
+  const white = colord('#ffffff');
+  const baseRgb = baseColor.toRgb();
+  const whiteRgb = white.toRgb();
+  const mixedRgb = {
+    r: Math.round(baseRgb.r * (1 - amount) + whiteRgb.r * amount),
+    g: Math.round(baseRgb.g * (1 - amount) + whiteRgb.g * amount),
+    b: Math.round(baseRgb.b * (1 - amount) + whiteRgb.b * amount),
+  };
+  const c = colord(mixedRgb);
   return parseInt(c.toHex().slice(1), 16);
 }
 
@@ -83,7 +93,7 @@ export class Effects {
   /**
    * Update shake effect (call in update loop)
    */
-  update(time: number, delta: number): void {
+    update(_time: number, delta: number): void {
     if (this.shakeTimer > 0) {
       const mainCamera = this.camera.main;
       // Calculate offset relative to original scroll position (0, 0)
@@ -115,7 +125,8 @@ export class Effects {
    * Create hit flash effect on sprite
    */
   hitFlash(sprite: Phaser.GameObjects.Sprite, duration: number = 100): void {
-    const originalTint = sprite.tint;
+      // Original tint available if needed in future
+      // const originalTint = sprite.tint;
     sprite.setTint(0xffffff);
 
     sprite.scene.time.delayedCall(duration, () => {
@@ -188,7 +199,7 @@ export class Effects {
       lifespan: 200,
       quantity: 1,
       tint: color,
-      follow: null,
+      follow: undefined,
     });
   }
 

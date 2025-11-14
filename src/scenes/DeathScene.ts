@@ -5,7 +5,8 @@
 import Phaser from 'phaser';
 import { musicSystem, MusicTheme } from '../systems/MusicSystem';
 import { sceneLogger } from '../utils/SceneLogger';
-import { getKenneySprite } from '../config/AssetMappings';
+// getKenneySprite available if needed in future
+// import { getKenneySprite } from '../config/AssetMappings';
 import { GAME_CONFIG } from '../config/constants';
 
 interface Meteorite {
@@ -110,6 +111,7 @@ export class DeathScene extends Phaser.Scene {
       try {
         musicSystem.playTheme(MusicTheme.GAME_OVER);
       } catch (e) {
+        // Ignore music errors - game can continue without music
       }
     }
     
@@ -292,7 +294,9 @@ export class DeathScene extends Phaser.Scene {
         
         // Check scene states after transition
         setTimeout(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           if ((window as any).sceneLogger) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (window as any).sceneLogger.checkSceneStates(this.game);
           }
         }, 100);
@@ -349,7 +353,9 @@ export class DeathScene extends Phaser.Scene {
         
         // Check scene states after transition
         setTimeout(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           if ((window as any).sceneLogger) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (window as any).sceneLogger.checkSceneStates(this.game);
           }
         }, 100);
@@ -625,12 +631,14 @@ export class DeathScene extends Phaser.Scene {
       };
       
       // Outer shadow (thinner for branches, translucent)
-      this.crackGraphics.lineStyle(4, 0x000000, 0.3 * pulseAlpha);
-      this.crackGraphics.lineBetween(startRotated.x, startRotated.y, endRotated.x, endRotated.y);
-      
-      // Inner glow (thinner for branches, darker red, translucent and pulsing)
-      this.crackGraphics.lineStyle(2, 0xaa0000, pulseAlpha * 0.9); // Darker red
-      this.crackGraphics.lineBetween(startRotated.x, startRotated.y, endRotated.x, endRotated.y);
+      if (this.crackGraphics) {
+        this.crackGraphics.lineStyle(4, 0x000000, 0.3 * pulseAlpha);
+        this.crackGraphics.lineBetween(startRotated.x, startRotated.y, endRotated.x, endRotated.y);
+        
+        // Inner glow (thinner for branches, darker red, translucent and pulsing)
+        this.crackGraphics.lineStyle(2, 0xaa0000, pulseAlpha * 0.9); // Darker red
+        this.crackGraphics.lineBetween(startRotated.x, startRotated.y, endRotated.x, endRotated.y);
+      }
     });
   }
 
@@ -658,7 +666,8 @@ export class DeathScene extends Phaser.Scene {
     
     for (let i = 0; i < fireCount; i++) {
       let attempts = 0;
-      let x: number, y: number;
+      let x: number = 0;
+      let y: number = 0;
       let validPosition = false;
       
       while (!validPosition && attempts < 50) {
@@ -1016,6 +1025,7 @@ export class DeathScene extends Phaser.Scene {
       sprite: human,
       headSprite: humanData.headSprite,
       bloodParticles: humanData.bloodParticles,
+      bloodDrips: humanData.bloodDrips,
       vx,
       vy,
       rotationSpeed,
@@ -1023,8 +1033,12 @@ export class DeathScene extends Phaser.Scene {
       floatSpeed,
       floatPhase,
       isDecapitated: humanData.isDecapitated,
+      isFullySeparated: humanData.isFullySeparated || false,
       headOffsetX: humanData.headOffsetX,
       headOffsetY: humanData.headOffsetY,
+      headVx: humanData.headVx,
+      headVy: humanData.headVy,
+      headRotationSpeed: humanData.headRotationSpeed,
     });
   }
 
@@ -1408,7 +1422,7 @@ export class DeathScene extends Phaser.Scene {
     });
   }
 
-  update(time: number, delta: number): void {
+  update(_time: number, delta: number): void {
     // Log if update is called when scene should be transitioning
     if (this.isTransitioning) {
       sceneLogger.log('DeathScene', 'UPDATE_WHILE_TRANSITIONING', {

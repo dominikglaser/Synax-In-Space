@@ -2,7 +2,7 @@
  * Starfield system using Simplex Noise for procedural star generation
  */
 
-import SimplexNoise from 'simplex-noise';
+import { createNoise2D } from 'simplex-noise';
 import Phaser from 'phaser';
 
 export interface StarfieldLayer {
@@ -30,12 +30,12 @@ export function createParallaxStarfield(
   const g3 = scene.add.graphics();
   g3.fillStyle(0xffffff, 0.2);
 
-  const noise = new SimplexNoise('stars');
+  const noise2D = createNoise2D();
 
   // Generate stars using noise for distribution
   for (let i = 0; i < 400; i++) {
-    const x = (noise.noise2D(i * 0.1, 0) * 0.5 + 0.5) * w;
-    const y = (noise.noise2D(0, i * 0.1) * 0.5 + 0.5) * h;
+    const x = (noise2D(i * 0.1, 0) * 0.5 + 0.5) * w;
+    const y = (noise2D(0, i * 0.1) * 0.5 + 0.5) * h;
     g1.fillRect(x, y, 2, 2);
   }
 
@@ -52,11 +52,11 @@ export function createParallaxStarfield(
   }
 
   // Generate textures
-  const l1 = g1.generateTexture('stars1', w, h);
+  g1.generateTexture('stars1', w, h);
   g1.destroy();
-  const l2 = g2.generateTexture('stars2', w, h);
+  g2.generateTexture('stars2', w, h);
   g2.destroy();
-  const l3 = g3.generateTexture('stars3', w, h);
+  g3.generateTexture('stars3', w, h);
   g3.destroy();
 
   // Create tile sprites

@@ -41,7 +41,8 @@ export class ParallaxSystem {
     this.depthOfFieldSystem = depthOfFieldSystem;
 
     // Ensure renderer is ready before creating images
-    if (!scene.game.renderer || !scene.game.renderer.gl) {
+    const renderer = scene.game.renderer as Phaser.Renderer.WebGL.WebGLRenderer | Phaser.Renderer.Canvas.CanvasRenderer;
+    if (!renderer || !(renderer as any).gl) {
       scene.time.delayedCall(100, () => this.createLayers(scene, shadowSystem, depthOfFieldSystem));
       return;
     }
@@ -195,7 +196,6 @@ export class ParallaxSystem {
     }
     
     const rng = (scene as any).rng;
-    const minSize = 84; // Smallest enemy size
     const size = rng ? rng.floatRange(300, 500) : Math.random() * 200 + 300; // Huge - 300-500px
     const x = GAME_CONFIG.width + 100;
     const y = rng ? rng.floatRange(GAME_CONFIG.height * 0.2, GAME_CONFIG.height * 0.8) : Math.random() * GAME_CONFIG.height * 0.6 + GAME_CONFIG.height * 0.2;

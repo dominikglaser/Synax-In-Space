@@ -27,7 +27,7 @@ export class PreloadScene extends Phaser.Scene {
     // Load audio sprite if it exists
     try {
       const a = ASSETS.audioSprite;
-      this.load.audioSprite(a.key, a.url, a.audioURL);
+      this.load.audioSprite(a.key, a.url, [...a.audioURL]);
     } catch (error) {
       // Audio sprite not found, will use procedural audio
     }
@@ -289,7 +289,7 @@ export class PreloadScene extends Phaser.Scene {
       { type: 'sineFlyer', sprite: getKenneySprite('enemySineFlyer', 0) },
     ];
     
-    for (const { type, sprite } of enemySprites) {
+    for (const { type: _type, sprite } of enemySprites) {
       if (!atlas.has(sprite)) {
       }
     }
@@ -1862,7 +1862,8 @@ export class PreloadScene extends Phaser.Scene {
     const wingDark = '#2a2a2a'; // Darker grey - wing details
     const engineColor = '#1a1a1a'; // Black - engines
     const cockpitColor = '#1a1a2a'; // Dark blue-grey - cockpit
-    const redAccent = '#cc0000'; // Red - accents
+      // Red accent available if needed in future
+      // const redAccent = '#cc0000'; // Red - accents
     const brownAccent = '#5a4a3a'; // Brown - weathering
     const whiteAccent = '#ffffff'; // White - highlights
     
@@ -1878,6 +1879,8 @@ export class PreloadScene extends Phaser.Scene {
     
     // MAIN FUSELAGE - Pointed nose design (scaled 6x from original)
     // Main body outline (wrecked - broken in middle)
+    // Fuselage points available if needed in future (commented out to avoid unused variable warning)
+    /*
     const fuselagePoints = [
       // Front nose (pointed right)
       { x: shipRefX + shipWidth * 0.9, y: shipRefY },
@@ -1896,6 +1899,7 @@ export class PreloadScene extends Phaser.Scene {
       { x: shipRefX + shipWidth * 0.7, y: shipRefY + shipHeight * 0.21 },
       { x: shipRefX + shipWidth * 0.8, y: shipRefY + shipHeight * 0.11 },
     ];
+    */
     
     // Draw main fuselage body (broken in middle - split at rear)
     // Front section (nose to break point)

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Phaser 3 + TypeScript side-scrolling shooter",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "assets:clean": "rimraf assets/generated",
     "assets:download": "node scripts/download-assets.mjs",
@@ -17,11 +18,18 @@
     "game:starfield": "node scripts/gen-starfield.mjs",
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:electron": "ELECTRON=true npm run build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src --ext .ts",
-    "format": "prettier --write \"src/**/*.{ts,js}\" \"*.{json,md}\""
+    "format": "prettier --write \"src/**/*.{ts,js}\" \"*.{json,md}\"",
+    "electron": "electron .",
+    "electron:dev": "concurrently \"ELECTRON=true vite\" \"wait-on http://localhost:3000 && electron .\"",
+    "icons": "node scripts/create-icons.mjs",
+    "build:mac": "npm run build:electron && electron-builder --mac",
+    "build:win": "npm run build:electron && electron-builder --win",
+    "build:all": "npm run build:electron && electron-builder --mac --win"
   },
   "dependencies": {
     "bezier-easing": "^2.1.0",
@@ -48,6 +56,9 @@
     "@vitest/coverage-v8": "^3.0.0",
     "@vitest/ui": "^3.0.0",
     "chokidar": "^3.6.0",
+    "electron": "^39.1.2",
+    "electron-builder": "^26.0.12",
+    "electron-icon-maker": "^0.0.5",
     "eslint": "^8.57.1",
     "globby": "^14.0.1",
     "jsdom": "^27.2.0",
@@ -59,5 +70,94 @@
     "vite": "^7.2.2",
     "vitest": "^3.0.0"
   },
-  "packageManager": "npm@11.6.2+sha512.ee22b335fcbc95662cdf3ab8a053daf045d9cf9c6df6040d28965abb707512b2c16fa6c5eec049d34c74f78f390cebd14f697919eadb97756564d4f9eccc4954"
+  "packageManager": "npm@11.6.2+sha512.ee22b335fcbc95662cdf3ab8a053daf045d9cf9c6df6040d28965abb707512b2c16fa6c5eec049d34c74f78f390cebd14f697919eadb97756564d4f9eccc4954",
+  "build": {
+    "appId": "com.synax.space",
+    "productName": "Synax In Space",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json",
+      "!node_modules/**/*",
+      "!src/**/*",
+      "!*.md",
+      "!*.plan.md",
+      "!.git/**/*",
+      "!tests/**/*",
+      "!scripts/**/*",
+      "!assets/raw/**/*",
+      "!assets/downloads/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.games",
+      "target": [
+        {
+          "target": "default",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": true,
+      "artifactName": "${productName}-${version}-universal.${ext}"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Synax In Space"
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "icon": "build/icon.png",
+      "background": null,
+      "contents": [
+        {
+          "x": 410,
+          "y": 150,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 130,
+          "y": 150,
+          "type": "file"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 380
+      }
+    },
+    "compression": "maximum",
+    "publish": null
+  }
 }

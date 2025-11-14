@@ -70,11 +70,9 @@ export class AudioSystem {
 
     const sampleRate = this.audioContext.sampleRate;
     let duration = 0.1;
-    let frequency = 800;
 
     if (name === 'laser' || name === 'pew') {
       duration = 0.08;
-      frequency = 2000;
       const frameCount = Math.floor(duration * sampleRate);
       const buffer = this.audioContext.createBuffer(1, frameCount, sampleRate);
       const channelData = buffer.getChannelData(0);

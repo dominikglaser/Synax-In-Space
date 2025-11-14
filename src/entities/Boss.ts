@@ -5,7 +5,8 @@
 import Phaser from 'phaser';
 import { BALANCER } from '../systems/Balancer';
 import { RNG } from '../systems/RNG';
-import type { BossPhase } from '../types';
+// BossPhase type imported for future use
+// import type { BossPhase } from '../types';
 import { getKenneySprite } from '../config/AssetMappings';
 
 export class Boss extends Phaser.GameObjects.Sprite {
@@ -16,9 +17,10 @@ export class Boss extends Phaser.GameObjects.Sprite {
   public patternTime: number = 0;
   public startX: number = 0;
   public startY: number = 0;
-  private rng: RNG;
+  // RNG available if needed for future boss behavior
+  // private _rng: RNG;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, rng: RNG) {
+  constructor(scene: Phaser.Scene, x: number, y: number, _rng: RNG) {
     // Try to use Kenney boss sprite if available
     let textureKey = 'enemy-turret'; // Fallback to turret sprite
     let frameKey: string | undefined = undefined;
@@ -33,9 +35,10 @@ export class Boss extends Phaser.GameObjects.Sprite {
     }
     
     super(scene, x, y, textureKey, frameKey);
+    // RNG stored if needed for future boss behavior
+    // this._rng = rng;
     this.startX = x;
     this.startY = y;
-    this.rng = rng;
     scene.add.existing(this);
     this.setScale(2.5); // Boss is larger
     
@@ -105,7 +108,7 @@ export class Boss extends Phaser.GameObjects.Sprite {
         this.y = this.startY + Math.sin(this.patternTime * 2) * 100;
         break;
 
-      case 1:
+      case 1: {
         // Phase 2: Move towards player slowly
         const dx = playerX - this.x;
         const dy = playerY - this.y;
@@ -115,8 +118,9 @@ export class Boss extends Phaser.GameObjects.Sprite {
           this.y += (dy / dist) * BALANCER.bossSpeed * deltaSeconds * 0.5;
         }
         break;
+      }
 
-      case 2:
+      case 2: {
         // Phase 3: Aggressive movement
         const dx2 = playerX - this.x;
         const dy2 = playerY - this.y;
@@ -126,6 +130,7 @@ export class Boss extends Phaser.GameObjects.Sprite {
           this.y += (dy2 / dist2) * BALANCER.bossSpeed * deltaSeconds;
         }
         break;
+      }
     }
   }
 
@@ -151,7 +156,7 @@ export class Boss extends Phaser.GameObjects.Sprite {
     const bullets: { angle: number; speed: number }[] = [];
 
     switch (this.currentPhase) {
-      case 0:
+      case 0: {
         // Phase 1: Targeted shot + side spread
         const angle = Math.atan2(playerY - this.y, playerX - this.x);
         bullets.push({ angle, speed: BALANCER.bossBulletSpeed });
@@ -159,8 +164,9 @@ export class Boss extends Phaser.GameObjects.Sprite {
         bullets.push({ angle: angle - Math.PI / 6, speed: BALANCER.bossBulletSpeed * 0.8 });
         bullets.push({ angle: angle + Math.PI / 6, speed: BALANCER.bossBulletSpeed * 0.8 });
         break;
+      }
 
-      case 1:
+      case 1: {
         // Phase 2: Wide spread + targeted
         const baseAngle = Math.atan2(playerY - this.y, playerX - this.x);
         // Targeted shot
@@ -173,8 +179,9 @@ export class Boss extends Phaser.GameObjects.Sprite {
           });
         }
         break;
+      }
 
-      case 2:
+      case 2: {
         // Phase 3: Complex pattern - spiral + targeted
         const baseAngle2 = Math.atan2(playerY - this.y, playerX - this.x);
         // Targeted shots
@@ -192,6 +199,7 @@ export class Boss extends Phaser.GameObjects.Sprite {
         bullets.push({ angle: baseAngle2 - Math.PI / 3, speed: BALANCER.bossBulletSpeed * 0.8 });
         bullets.push({ angle: baseAngle2 + Math.PI / 3, speed: BALANCER.bossBulletSpeed * 0.8 });
         break;
+      }
     }
 
     return bullets;

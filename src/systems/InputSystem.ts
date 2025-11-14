@@ -3,6 +3,8 @@
  */
 
 import Phaser from 'phaser';
+import { validateGamepadStick, validateGamepadButton } from '../utils/inputValidation';
+import type { ExtendedGamepad } from '../types/gamepad';
 
 export interface InputState {
   left: boolean;
@@ -26,7 +28,7 @@ export class InputSystem {
   private bomb: Phaser.Input.Keyboard.Key;
   private shield: Phaser.Input.Keyboard.Key;
   private esc: Phaser.Input.Keyboard.Key;
-  private gamepad: Phaser.Input.Gamepad.Gamepad | null = null;
+  private gamepad: ExtendedGamepad | null = null;
 
   constructor(scene: Phaser.Scene) {
     this.cursors = scene.input.keyboard!.createCursorKeys();
@@ -43,21 +45,25 @@ export class InputSystem {
 
     // Gamepad support
     scene.input.gamepad?.on('connected', (pad: Phaser.Input.Gamepad.Gamepad) => {
-      this.gamepad = pad;
+      this.gamepad = pad as ExtendedGamepad;
     });
   }
 
   /**
-   * Get current input state
+   * Get current input state with validation
    */
   getInputState(): InputState {
-    const left = this.cursors.left.isDown || this.wasd.A.isDown || (this.gamepad?.leftStick.x ?? 0) < -0.5;
-    const right = this.cursors.right.isDown || this.wasd.D.isDown || (this.gamepad?.leftStick.x ?? 0) > 0.5;
-    const up = this.cursors.up.isDown || this.wasd.W.isDown || (this.gamepad?.leftStick.y ?? 0) < -0.5;
-    const down = this.cursors.down.isDown || this.wasd.S.isDown || (this.gamepad?.leftStick.y ?? 0) > 0.5;
-    const fire = this.space.isDown || (this.gamepad?.A ?? false);
-    const bomb = this.bomb.isDown || (this.gamepad?.rightShoulder ?? false);
-    const pause = Phaser.Input.Keyboard.JustDown(this.esc) || (this.gamepad?.start ?? false);
+    // Validate gamepad stick values
+    const gamepadX = this.gamepad ? validateGamepadStick(this.gamepad.leftStick?.x) : 0;
+    const gamepadY = this.gamepad ? validateGamepadStick(this.gamepad.leftStick?.y) : 0;
+    
+    const left = this.cursors.left.isDown || this.wasd.A.isDown || gamepadX < -0.5;
+    const right = this.cursors.right.isDown || this.wasd.D.isDown || gamepadX > 0.5;
+    const up = this.cursors.up.isDown || this.wasd.W.isDown || gamepadY < -0.5;
+    const down = this.cursors.down.isDown || this.wasd.S.isDown || gamepadY > 0.5;
+    const fire = this.space.isDown || validateGamepadButton(this.gamepad?.A);
+    const bomb = this.bomb.isDown || validateGamepadButton(this.gamepad?.rightShoulder);
+    const pause = Phaser.Input.Keyboard.JustDown(this.esc) || validateGamepadButton(this.gamepad?.start);
 
     return {
       left,
@@ -74,28 +80,28 @@ export class InputSystem {
    * Check if fire button was just pressed (not held)
    */
   isFireJustPressed(): boolean {
-    return Phaser.Input.Keyboard.JustDown(this.space) || (this.gamepad?.A ?? false);
+    return Phaser.Input.Keyboard.JustDown(this.space) || validateGamepadButton(this.gamepad?.A);
   }
 
   /**
    * Check if bomb button was just pressed
    */
   isBombJustPressed(): boolean {
-    return Phaser.Input.Keyboard.JustDown(this.bomb) || (this.gamepad?.rightShoulder ?? false);
+    return Phaser.Input.Keyboard.JustDown(this.bomb) || validateGamepadButton(this.gamepad?.rightShoulder);
   }
   
   /**
    * Check if shield button was just pressed
    */
   isShieldJustPressed(): boolean {
-    return Phaser.Input.Keyboard.JustDown(this.shield) || (this.gamepad?.leftShoulder ?? false);
+    return Phaser.Input.Keyboard.JustDown(this.shield) || validateGamepadButton(this.gamepad?.leftShoulder);
   }
 
   /**
    * Check if pause was just pressed
    */
   isPauseJustPressed(): boolean {
-    return Phaser.Input.Keyboard.JustDown(this.esc) || (this.gamepad?.start ?? false);
+    return Phaser.Input.Keyboard.JustDown(this.esc) || validateGamepadButton(this.gamepad?.start);
   }
 }
 

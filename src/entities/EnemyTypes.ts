@@ -6,25 +6,25 @@ import type { EnemyPattern } from '../types';
 import { BALANCER } from '../systems/Balancer';
 import { getKenneySprite } from '../config/AssetMappings';
 
-// Helper to get texture key, preferring Kenney assets if available
-function getEnemyTextureKey(type: 'chaser' | 'turret' | 'sineFlyer', scene: Phaser.Scene): string {
-  // Check if Kenney atlas exists and has the sprite
-  if (scene.textures.exists('game')) {
-    const atlas = scene.textures.get('game');
-    const kenneySprite = type === 'chaser' 
-      ? getKenneySprite('enemyChaser', 0)
-      : type === 'turret'
-      ? getKenneySprite('enemyTurret', 0)
-      : getKenneySprite('enemySineFlyer', 0);
-    
-    if (atlas.has(kenneySprite)) {
-      return kenneySprite;
-    }
-  }
-  
-  // Fallback to procedural texture
-  return `enemy-${type}`;
-}
+// Helper to get texture key, preferring Kenney assets if available (currently unused)
+// function getEnemyTextureKey(type: 'chaser' | 'turret' | 'sineFlyer', scene: Phaser.Scene): string {
+//   // Check if Kenney atlas exists and has the sprite
+//   if (scene.textures.exists('game')) {
+//     const atlas = scene.textures.get('game');
+//     const kenneySprite = type === 'chaser' 
+//       ? getKenneySprite('enemyChaser', 0)
+//       : type === 'turret'
+//       ? getKenneySprite('enemyTurret', 0)
+//       : getKenneySprite('enemySineFlyer', 0);
+//     
+//     if (atlas.has(kenneySprite)) {
+//       return kenneySprite;
+//     }
+//   }
+//   
+//   // Fallback to procedural texture
+//   return `enemy-${type}`;
+// }
 
 export const ENEMY_TYPES = {
   chaser: {

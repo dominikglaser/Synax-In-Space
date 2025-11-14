@@ -126,7 +126,7 @@ export class KennyEasterEgg {
    * Update all Kennys
    */
   static updateKennys(
-    scene: Phaser.Scene,
+    _scene: Phaser.Scene,
     width: number,
     height: number,
     delta: number,

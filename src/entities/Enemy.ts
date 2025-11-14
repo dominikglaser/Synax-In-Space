@@ -17,7 +17,8 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   public patternTime: number = 0;
   public startY: number = 0;
   private rng: RNG;
-  private spawnX: number = 0; // Track spawn position
+  // Track spawn position (currently unused but kept for future use)
+  // private spawnX: number = 0;
   public reachedEdge: boolean = false; // Has enemy reached the screen edge?
   public edgeX: number = 0; // X position when enemy reached the edge
   public returningToEdge: boolean = false; // Flag for when enemy should return to edge after backtracking
@@ -35,13 +36,16 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     }
 
     // Try to use Kenney sprite if available, fallback to procedural
-    let textureKey = enemyData.textureKey;
+    let textureKey: string = enemyData.textureKey;
     let frameKey: string | undefined = undefined;
     
     if (scene.textures.exists('game')) {
       const atlas = scene.textures.get('game');
-      const kenneySprite = (enemyData as any).kenneySprite;
-      if (atlas.has(kenneySprite)) {
+      // Check if enemyData has kenneySprite property
+      const kenneySprite = 'kenneySprite' in enemyData && typeof enemyData.kenneySprite === 'string' 
+        ? enemyData.kenneySprite 
+        : undefined;
+      if (kenneySprite && atlas.has(kenneySprite)) {
         textureKey = 'game'; // Use atlas as texture
         frameKey = kenneySprite; // Use sprite name as frame
       }
@@ -64,7 +68,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
    */
   init(x: number, y: number): void {
     this.setPosition(x, y);
-    this.spawnX = x;
+    // this.spawnX = x;
     this.startY = y;
     this.hp = this.maxHp;
     this.fireTimer = 0;
@@ -127,7 +131,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
    */
   private updateMovement(deltaSeconds: number, playerX: number, playerY: number): void {
     switch (this.pattern.type) {
-      case 'chaser':
+      case 'chaser': {
         const screenWidth = this.scene.cameras.main.width;
         const edgeThreshold = 50; // Consider edge reached at x = 50
         
@@ -176,6 +180,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
           // Vertical tracking already handled above
         }
         break;
+      }
 
       case 'turret':
         // Move slowly forward, stop to fire

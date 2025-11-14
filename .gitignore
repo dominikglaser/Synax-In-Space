@@ -10,6 +10,11 @@ coverage/
 .idea/
 .vscode/
 
+# Electron build outputs
+release/
+dist-electron/
+.electron-builder/
+
 # Downloaded asset packs (large files, can be re-downloaded)
 assets/kenney/
 assets/audio/sfx/sonniss/

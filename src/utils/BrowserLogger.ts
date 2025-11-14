@@ -3,6 +3,10 @@
  * Tracks console errors, network requests, performance metrics, and resource loading
  */
 
+import { sanitizeErrorMessage, sanitizeErrorData, sanitizeStackTrace, isProduction } from './errorSanitizer';
+import { networkRateLimiter, getRateLimitKey } from './rateLimiter';
+import { isRequestInfo, isRequestInit } from './typeGuards';
+
 interface BrowserLog {
   timestamp: number;
   type: 'error' | 'warning' | 'info' | 'network' | 'performance' | 'resource' | 'webgl' | 'visibility' | 'phaser';
@@ -49,6 +53,12 @@ class BrowserLogger {
   };
   private performanceMonitorInterval?: number;
   private isMonitoring = false;
+  // Use WeakMap to store private data per XMLHttpRequest instance (prevents prototype pollution)
+  private xhrDataMap = new WeakMap<XMLHttpRequest, {
+    url: string | URL;
+    method: string;
+    startTime: number;
+  }>();
 
   constructor() {
     // Store original console methods
@@ -67,13 +77,18 @@ class BrowserLogger {
   }
 
   private log(type: BrowserLog['type'], category: string, message: string, data?: any, stack?: string): void {
+    // Sanitize error messages in production
+    const sanitizedMessage = type === 'error' ? sanitizeErrorMessage(message, false) : message;
+    const sanitizedStack = stack ? sanitizeStackTrace(stack) : undefined;
+    const sanitizedData = type === 'error' && data ? sanitizeErrorData(data) : data;
+    
     const logEntry: BrowserLog = {
       timestamp: performance.now(),
       type,
       category,
-      message,
-      data,
-      stack,
+      message: sanitizedMessage,
+      data: sanitizedData,
+      stack: sanitizedStack,
     };
 
     this.logs.push(logEntry);
@@ -83,11 +98,14 @@ class BrowserLogger {
       this.logs.shift();
     }
 
-    // Only log errors and warnings to console
+    // Only log errors and warnings to console (sanitized in production)
     if (type === 'error' || type === 'warning') {
       const timeStr = logEntry.timestamp.toFixed(2);
-      const dataStr = data ? ` | ${JSON.stringify(data)}` : '';
-      console.log(`[BrowserLogger ${timeStr}ms] [${type.toUpperCase()}] ${category}: ${message}${dataStr}`);
+      const dataStr = sanitizedData ? ` | ${JSON.stringify(sanitizedData)}` : '';
+      if (!isProduction() || type === 'error') {
+        // In production, only log errors (not warnings) and with sanitized data
+        console.log(`[BrowserLogger ${timeStr}ms] [${type.toUpperCase()}] ${category}: ${sanitizedMessage}${dataStr}`);
+      }
     }
   }
 
@@ -139,15 +157,38 @@ class BrowserLogger {
   private setupNetworkInterception(): void {
     // Intercept fetch requests
     const originalFetch = window.fetch;
-    window.fetch = async (...args: any[]) => {
-      const url = typeof args[0] === 'string' ? args[0] : args[0].url;
-      const method = args[1]?.method || 'GET';
+    window.fetch = async (...args: unknown[]): Promise<Response> => {
+      // Validate arguments with type guards
+      if (!isRequestInfo(args[0])) {
+        throw new TypeError('First argument to fetch must be a RequestInfo');
+      }
+      
+      const requestInfo = args[0];
+      const requestInit = args[1] && isRequestInit(args[1]) ? args[1] : undefined;
+      
+      const url = typeof requestInfo === 'string' 
+        ? requestInfo 
+        : requestInfo instanceof Request 
+          ? requestInfo.url 
+          : (requestInfo && typeof requestInfo === 'object' && 'url' in requestInfo)
+            ? String((requestInfo as { url: unknown }).url) 
+            : '';
+      const method = requestInit?.method || (requestInfo instanceof Request ? requestInfo.method : 'GET') || 'GET';
       const startTime = performance.now();
+      
+      // Check rate limiting
+      const rateLimitKey = getRateLimitKey(url);
+      if (!networkRateLimiter.isAllowed(rateLimitKey)) {
+        const resetTime = networkRateLimiter.getResetTime(rateLimitKey);
+        const error = new Error(`Rate limit exceeded. Please wait ${Math.ceil(resetTime / 1000)} seconds.`);
+        this.log('error', 'FETCH_RATE_LIMITED', `Rate limited: ${method} ${url}`, { url, method, resetTime });
+        throw error;
+      }
       
       this.log('network', 'FETCH_START', `Fetching ${method} ${url}`, { url, method });
       
       try {
-        const response = await originalFetch(...args);
+        const response = await originalFetch(requestInfo, requestInit);
         const duration = performance.now() - startTime;
         
         const request: NetworkRequest = {
@@ -175,7 +216,13 @@ class BrowserLogger {
         return response;
       } catch (error) {
         const duration = performance.now() - startTime;
-        this.log('error', 'FETCH_ERROR', `Fetch failed: ${url}`, { error, duration });
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.log('error', 'FETCH_ERROR', `Fetch failed: ${url}`, { 
+          error: errorMessage,
+          errorType: error instanceof Error ? error.constructor.name : typeof error,
+          duration 
+        });
+        // Re-throw to maintain original behavior
         throw error;
       }
     };
@@ -184,21 +231,29 @@ class BrowserLogger {
     const originalXHROpen = XMLHttpRequest.prototype.open;
     const originalXHRSend = XMLHttpRequest.prototype.send;
     
-    XMLHttpRequest.prototype.open = function(method: string, url: string | URL, ...args: any[]) {
-      (this as any)._browserLoggerUrl = url;
-      (this as any)._browserLoggerMethod = method;
-      (this as any)._browserLoggerStartTime = performance.now();
-      return originalXHROpen.call(this, method, url as string, ...args);
+    XMLHttpRequest.prototype.open = function(method: string, url: string | URL, ...args: unknown[]) {
+      // Store data in WeakMap instead of prototype pollution
+      browserLogger.xhrDataMap.set(this, {
+        url,
+        method,
+        startTime: performance.now(),
+      });
+      const async = (args[0] as boolean | undefined) ?? true;
+      const user = args[1] as string | undefined;
+      const password = args[2] as string | undefined;
+      return originalXHROpen.call(this, method, url as string, async, user, password);
     };
 
-    XMLHttpRequest.prototype.send = function(...args: any[]) {
-      const url = (this as any)._browserLoggerUrl;
-      const method = (this as any)._browserLoggerMethod;
-      const startTime = (this as any)._browserLoggerStartTime;
+    XMLHttpRequest.prototype.send = function(body?: Document | XMLHttpRequestBodyInit | null) {
+      const xhrData = browserLogger.xhrDataMap.get(this);
+      const url = xhrData?.url;
+      const method = xhrData?.method;
+      const startTime = xhrData?.startTime;
       
-      if (url) {
+      if (url && startTime !== undefined) {
+        const startTimeValue = startTime;
         this.addEventListener('load', () => {
-          const duration = performance.now() - startTime;
+          const duration = performance.now() - startTimeValue;
           const request: NetworkRequest = {
             url: String(url),
             method: method || 'GET',
@@ -223,12 +278,12 @@ class BrowserLogger {
         });
 
         this.addEventListener('error', () => {
-          const duration = performance.now() - startTime;
+          const duration = startTime !== undefined ? performance.now() - startTime : 0;
           browserLogger.log('error', 'XHR_ERROR', `XHR failed: ${url}`, { error: 'Network error', duration });
         });
       }
 
-      return originalXHRSend.call(this, ...args);
+      return originalXHRSend.call(this, body);
     };
 
     // Monitor resource loading (images, audio, etc.)
@@ -281,8 +336,8 @@ class BrowserLogger {
       };
 
       // Memory metrics (Chrome/Edge only)
-      if ('memory' in performance) {
-        const memory = (performance as any).memory;
+      if ('memory' in performance && performance.memory) {
+        const memory = performance.memory;
         metric.memory = {
           usedJSHeapSize: memory.usedJSHeapSize,
           totalJSHeapSize: memory.totalJSHeapSize,
@@ -355,28 +410,29 @@ class BrowserLogger {
   private setupErrorHandlers(): void {
     // Global error handler
     window.addEventListener('error', (event) => {
-      this.log('error', 'GLOBAL_ERROR', event.message, {
-        filename: event.filename,
-        lineno: event.lineno,
-        colno: event.colno,
-        error: event.error,
-      }, event.error?.stack);
+      const errorData = isProduction() 
+        ? { /* Don't include filename/line numbers in production */ }
+        : {
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno,
+            error: event.error,
+          };
+      this.log('error', 'GLOBAL_ERROR', sanitizeErrorMessage(event.error || event.message, false), errorData, event.error?.stack);
     });
 
     // Unhandled promise rejection
     window.addEventListener('unhandledrejection', (event) => {
-      this.log('error', 'UNHANDLED_REJECTION', 'Unhandled promise rejection', {
-        reason: event.reason,
-      }, event.reason?.stack);
+      this.log('error', 'UNHANDLED_REJECTION', sanitizeErrorMessage(event.reason, false), sanitizeErrorData(event.reason), event.reason?.stack);
     });
 
     // WebGL context lost
     window.addEventListener('webglcontextlost', (event) => {
-      this.log('webgl', 'CONTEXT_LOST', 'WebGL context lost', {}, event);
+      this.log('webgl', 'CONTEXT_LOST', 'WebGL context lost', { event: event.type }, undefined);
     });
 
     window.addEventListener('webglcontextrestored', (event) => {
-      this.log('webgl', 'CONTEXT_RESTORED', 'WebGL context restored', {}, event);
+      this.log('webgl', 'CONTEXT_RESTORED', 'WebGL context restored', { event: event.type }, undefined);
     });
   }
 
@@ -498,7 +554,7 @@ export const browserLogger = new BrowserLogger();
 
 // Make it available globally for debugging
 if (typeof window !== 'undefined') {
-  (window as any).browserLogger = browserLogger;
+  window.browserLogger = browserLogger;
 }
 
 

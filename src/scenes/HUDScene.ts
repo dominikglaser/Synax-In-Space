@@ -3,7 +3,8 @@
  */
 
 import Phaser from 'phaser';
-import { GAME_CONFIG } from '../config/constants';
+// GAME_CONFIG available if needed in future
+// import { GAME_CONFIG } from '../config/constants';
 import type { GameState } from '../types';
 
 export class HUDScene extends Phaser.Scene {

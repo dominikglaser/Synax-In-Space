@@ -2,7 +2,8 @@
  * Collision system with broadphase grid
  */
 
-import { GAME_CONFIG } from '../config/constants';
+// GAME_CONFIG available if needed in future
+// import { GAME_CONFIG } from '../config/constants';
 import { circleCollision, circleAabbCollision } from '../utils/math';
 import type { Bullet } from '../entities/Bullet';
 import type { Enemy } from '../entities/Enemy';
@@ -11,7 +12,8 @@ import type { PowerUp } from '../entities/PowerUp';
 import type { Boss } from '../entities/Boss';
 
 export class CollisionSystem {
-  private gridSize: number = GAME_CONFIG.collisionGridSize;
+  // Grid size available if needed in future
+  // private gridSize: number = GAME_CONFIG.collisionGridSize;
 
   /**
    * Check collision between shield and enemy bullets

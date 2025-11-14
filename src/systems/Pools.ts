@@ -15,7 +15,7 @@ export class BulletPool {
   /**
    * Get a bullet from the pool or create a new one
    */
-  get(scene: Phaser.Scene): Bullet | null {
+  get(_scene: Phaser.Scene): Bullet | null {
     let bullet = this.pool.pop() || null;
 
     if (!bullet) {
@@ -65,7 +65,7 @@ export class EnemyPool {
   private pool: Enemy[] = [];
   private active: Set<Enemy> = new Set();
 
-  get(scene: Phaser.Scene, type: string): Enemy | null {
+  get(_scene: Phaser.Scene, _type: string): Enemy | null {
     let enemy = this.pool.pop() || null;
 
     if (!enemy) {
@@ -105,7 +105,7 @@ export class PowerUpPool {
   private pool: PowerUp[] = [];
   private active: Set<PowerUp> = new Set();
 
-  get(scene: Phaser.Scene): PowerUp | null {
+  get(_scene: Phaser.Scene): PowerUp | null {
     let powerUp = this.pool.pop() || null;
 
     if (!powerUp) {
@@ -142,7 +142,8 @@ export class PowerUpPool {
 }
 
 export class ParticlePool {
-  private pool: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
+  // Pool available if needed in future
+  // private pool: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
   private active: Set<Phaser.GameObjects.Particles.ParticleEmitter> = new Set();
 
   get(
@@ -172,7 +173,8 @@ export class ParticlePool {
       emitter.destroy();
     });
     this.active.clear();
-    this.pool = [];
+    // Pool cleared (array reset)
+    // this.pool = [];
   }
 }
 

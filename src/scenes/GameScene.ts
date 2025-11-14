@@ -8,9 +8,12 @@ import { BALANCER, WEAPON_SPECS } from '../systems/Balancer';
 import { RNG } from '../systems/RNG';
 import { audioSystem } from '../systems/AudioSystem';
 import { musicSystem, MusicTheme } from '../systems/MusicSystem';
-import { createParallaxStarfield } from '../systems/Starfield';
-import { BulletMLRunner } from '../systems/BulletMLRunner';
-import { Pools } from '../systems/Pools';
+// createParallaxStarfield available if needed in future
+// import { createParallaxStarfield } from '../systems/Starfield';
+// BulletMLRunner available if needed in future
+// import { BulletMLRunner } from '../systems/BulletMLRunner';
+// Pools available if needed in future
+// import { Pools } from '../systems/Pools';
 import { Effects } from '../systems/Effects';
 import { InputSystem } from '../systems/InputSystem';
 import { SpawnerSystem } from '../systems/SpawnerSystem';
@@ -28,6 +31,7 @@ import { getKenneySprite } from '../config/AssetMappings';
 import { sceneLogger } from '../utils/SceneLogger';
 import { browserLogger } from '../utils/BrowserLogger';
 import { getGodMode } from './MenuScene';
+import { ErrorHandler } from '../utils/errorHandler';
 
 export class GameScene extends Phaser.Scene {
   private rng!: RNG;
@@ -36,7 +40,8 @@ export class GameScene extends Phaser.Scene {
   private enemies: Enemy[] = [];
   private powerUps: PowerUp[] = [];
   private boss: Boss | null = null;
-  private pools!: Pools;
+  // Pools available if needed in future
+  // private pools!: Pools;
   private effects!: Effects;
   private inputSystem!: InputSystem;
   private spawnerSystem!: SpawnerSystem;
@@ -151,17 +156,18 @@ export class GameScene extends Phaser.Scene {
     // This is important when restarting the scene
     
     // Clean up systems first (they might have references to game objects)
-    if (this.parallaxSystem && typeof (this.parallaxSystem as any).destroy === 'function') {
+    if (this.parallaxSystem && 'destroy' in this.parallaxSystem && typeof this.parallaxSystem.destroy === 'function') {
       try {
-        (this.parallaxSystem as any).destroy();
+        this.parallaxSystem.destroy();
       } catch (e) {
+        // Ignore cleanup errors
       }
     }
     
     if (this.player) {
       sceneLogger.log('GameScene', 'CLEANUP_OLD_PLAYER');
       this.player.destroy();
-      this.player = undefined as any;
+      this.player = undefined!;
     }
     
     for (let i = this.bullets.length - 1; i >= 0; i--) {
@@ -220,14 +226,17 @@ export class GameScene extends Phaser.Scene {
     
     // Stop any other music sounds that might be playing (but not sound effects)
     // Get all sounds and stop only the ones that are music
-    const allSounds = this.sound.sounds;
-    allSounds.forEach((sound) => {
-      if (sound.key === 'gameplayMusic' || sound.key === 'menuMusic' || 
-          sound.key === 'victoryMusic' || sound.key === 'gameOverMusic' || 
-          sound.key === 'storyMusic') {
-        sound.stop();
-      }
-    });
+    const soundManager = this.sound as Phaser.Sound.BaseSoundManager & { sounds?: Phaser.Sound.BaseSound[] };
+    if (soundManager.sounds && Array.isArray(soundManager.sounds)) {
+      const allSounds = soundManager.sounds;
+      allSounds.forEach((sound: Phaser.Sound.BaseSound) => {
+        if (sound.key === 'gameplayMusic' || sound.key === 'menuMusic' || 
+            sound.key === 'victoryMusic' || sound.key === 'gameOverMusic' || 
+            sound.key === 'storyMusic') {
+          sound.stop();
+        }
+      });
+    }
     
     // Try to play custom MP3 music, fallback to procedural music
     try {
@@ -246,8 +255,9 @@ export class GameScene extends Phaser.Scene {
         // Fallback to procedural gameplay theme
         // Ensure no MP3 music is playing
         if (this.gameplayMusic) {
-          this.gameplayMusic.stop();
-          this.gameplayMusic.destroy();
+          const music = this.gameplayMusic as Phaser.Sound.BaseSound;
+          music.stop();
+          music.destroy();
           this.gameplayMusic = undefined;
         }
         musicSystem.playTheme(MusicTheme.GAMEPLAY);
@@ -264,7 +274,8 @@ export class GameScene extends Phaser.Scene {
     this.scene.launch('HUDScene');
 
     // Initialize systems (recreate them to ensure clean state)
-    this.pools = new Pools();
+    // Pools available if needed in future
+    // this.pools = new Pools();
     this.effects = new Effects(this);
     this.inputSystem = new InputSystem(this);
     this.spawnerSystem = new SpawnerSystem(this.rng);
@@ -275,7 +286,7 @@ export class GameScene extends Phaser.Scene {
     this.depthOfFieldSystem = new DepthOfFieldSystem(this);
 
     // Create parallax backgrounds (rng is passed via scene for meteorite generation)
-    (this as any).rng = this.rng;
+    // RNG is already stored in this.rng, no need to assign to window
     
     // Ensure renderer is ready before creating parallax layers
     // Use a small delay to ensure the scene is fully initialized
@@ -323,7 +334,8 @@ export class GameScene extends Phaser.Scene {
       
       // Log WebGL info if available
       if (this.game.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer) {
-        const gl = this.game.renderer.gl;
+        const webglRenderer = this.game.renderer as Phaser.Renderer.WebGL.WebGLRenderer;
+        const gl = webglRenderer.gl;
         if (gl) {
           browserLogger.logWebGLInfo({
             vendor: gl.getParameter(gl.VENDOR),
@@ -334,10 +346,14 @@ export class GameScene extends Phaser.Scene {
         }
       }
     } catch (error) {
-      sceneLogger.logError('GameScene', 'CREATE_FATAL_ERROR', error);
-      // Don't show error message on screen - errors are logged to console for debugging
-      // If there's a critical error, the scene won't work anyway, so showing an error
-      // message on screen is confusing for users
+      ErrorHandler.handleError('GameScene.create', error, {
+        logToScene: true,
+        logToConsole: true,
+        rethrow: false,
+        // Don't show error message on screen - errors are logged to console for debugging
+        // If there's a critical error, the scene won't work anyway, so showing an error
+        // message on screen is confusing for users
+      });
     }
   }
 
@@ -406,18 +422,14 @@ export class GameScene extends Phaser.Scene {
 
     // Update shadow and depth of field systems (check if initialized)
     if (this.shadowSystem) {
-      try {
-        this.shadowSystem.update();
-      } catch (e) {
-        sceneLogger.logError('GameScene', 'SHADOW_SYSTEM_UPDATE_ERROR', e);
-      }
+      ErrorHandler.executeSync('GameScene.shadowSystem.update', () => {
+        this.shadowSystem!.update();
+      });
     }
     if (this.depthOfFieldSystem) {
-      try {
-        this.depthOfFieldSystem.update();
-      } catch (e) {
-        sceneLogger.logError('GameScene', 'DEPTH_OF_FIELD_UPDATE_ERROR', e);
-      }
+      ErrorHandler.executeSync('GameScene.depthOfFieldSystem.update', () => {
+        this.depthOfFieldSystem!.update();
+      });
     }
 
     // Check collisions
@@ -784,7 +796,8 @@ export class GameScene extends Phaser.Scene {
    */
   private explodeEnemy(enemy: Enemy): void {
     const explosionRadius = 100; // Small explosion radius
-    const explosionDamage = BALANCER.bulletDamage * 3; // Damage for explosion
+    // Explosion damage available if needed for future chain reactions
+    // const explosionDamage = BALANCER.bulletDamage * 3;
     
     // Visual explosion effect
     this.effects.explosion(this, enemy.x, enemy.y, 0xff0000);
@@ -1032,20 +1045,20 @@ export class GameScene extends Phaser.Scene {
 
     // Player bullets vs boss
     if (this.boss) {
-      collision = this.collisionSystem.checkBulletBossCollision(
+      const bossCollision = this.collisionSystem.checkBulletBossCollision(
         playerBullets,
         this.boss
       );
-      if (collision) {
+      if (bossCollision) {
         // Create explosion effect at bullet impact point (always, not just when boss dies)
-        this.effects.explosion(this, collision.bullet.x, collision.bullet.y, 0x00ffff);
-        collision.bullet.setActive(false);
-        const dead = collision.boss.takeDamage(collision.bullet.damage);
-        this.effects.hitFlash(collision.boss);
+        this.effects.explosion(this, bossCollision.bullet.x, bossCollision.bullet.y, 0x00ffff);
+        bossCollision.bullet.setActive(false);
+        const dead = bossCollision.boss.takeDamage(bossCollision.bullet.damage);
+        this.effects.hitFlash(bossCollision.boss);
         if (dead) {
           this.gameState.score += BALANCER.scorePerKill.boss;
           // Create larger explosion when boss dies
-          this.effects.explosion(this, collision.boss.x, collision.boss.y);
+          this.effects.explosion(this, bossCollision.boss.x, bossCollision.boss.y);
           audioSystem.playBoom();
         }
       }
@@ -1212,14 +1225,20 @@ export class GameScene extends Phaser.Scene {
       
       // Check scene states after transition
       setTimeout(() => {
-        if ((window as any).sceneLogger) {
-          (window as any).sceneLogger.checkSceneStates(this.game);
+        if (window.sceneLogger) {
+          window.sceneLogger.checkSceneStates(this.game);
         }
       }, 100);
     } catch (error) {
-      sceneLogger.logError('GameScene', 'GAMEOVER_TRANSITION_ERROR', error);
-      this.isTransitioning = false;
-      this.gameOverTriggered = false;
+      ErrorHandler.handleError('GameScene.gameOver', error, {
+        logToScene: true,
+        logToConsole: true,
+        rethrow: false,
+        fallback: () => {
+          this.isTransitioning = false;
+          this.gameOverTriggered = false;
+        },
+      });
     }
   }
 
@@ -1253,7 +1272,7 @@ export class GameScene extends Phaser.Scene {
     // Destroy all game objects
     if (this.player) {
       this.player.destroy();
-      this.player = undefined as any;
+      this.player = undefined!;
     }
     
     for (let i = this.bullets.length - 1; i >= 0; i--) {
@@ -1287,12 +1306,39 @@ export class GameScene extends Phaser.Scene {
     
     // Clean up systems
     if (this.effects) {
-      // Effects cleanup if needed
+      // Effects cleanup if needed (Effects doesn't have explicit cleanup)
     }
     
-    if (this.parallaxSystem) {
-      // Parallax cleanup if needed
+    if (this.parallaxSystem && 'destroy' in this.parallaxSystem && typeof this.parallaxSystem.destroy === 'function') {
+      try {
+        this.parallaxSystem.destroy();
+      } catch (e) {
+        // Ignore cleanup errors
+      }
     }
+    
+    // Clean up other systems
+    if (this.shadowSystem) {
+      // ShadowSystem cleanup if needed
+    }
+    
+    if (this.depthOfFieldSystem) {
+      // DepthOfFieldSystem cleanup if needed
+    }
+    
+    // Clear all arrays
+    this.bullets = [];
+    this.enemies = [];
+    this.powerUps = [];
+    
+    // Clear system references
+    this.inputSystem = undefined!;
+    this.spawnerSystem = undefined!;
+    this.collisionSystem = undefined!;
+    this.parallaxSystem = undefined!;
+    this.shadowSystem = undefined!;
+    this.depthOfFieldSystem = undefined!;
+    this.effects = undefined!;
     
     sceneLogger.log('GameScene', 'ALL_OBJECTS_DESTROYED');
     

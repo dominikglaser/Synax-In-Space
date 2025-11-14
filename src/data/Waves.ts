@@ -4,37 +4,71 @@
 
 import { parseWaves, type Wave } from '../systems/PatternML';
 import JSON5 from 'json5';
+import { validateUrlString } from '../utils/inputValidation';
+import { urlRateLimiter, getRateLimitKey } from '../utils/rateLimiter';
+import { logger } from '../utils/logger';
+import { ErrorHandler } from '../utils/errorHandler';
 
 // Security: Maximum file size for wave data (1MB)
 const MAX_WAVE_FILE_SIZE = 1024 * 1024;
 
 /**
- * Validate URL to prevent SSRF attacks
+ * Enhanced URL validation to prevent SSRF attacks
  */
 function validateWaveUrl(urlString: string): void {
+  // Use centralized URL validation
+  const sanitizedUrl = validateUrlString(urlString);
+  
   try {
-    const url = new URL(urlString, window.location.href);
+    const url = new URL(sanitizedUrl, window.location.href);
+    
     // Only allow http and https protocols
     if (!['http:', 'https:'].includes(url.protocol)) {
-      throw new Error('Invalid protocol');
+      throw new Error('Only HTTP and HTTPS protocols are allowed');
     }
-    // For browser context, we can allow relative URLs and same-origin
+    
     // Block file:// protocol
     if (url.protocol === 'file:') {
       throw new Error('File protocol not allowed');
     }
+    
+    // Block localhost/internal network access (optional security measure)
+    // In browser context, this is less critical but still good practice
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0') {
+      // Allow localhost for development, but could be restricted in production
+      // For now, we allow it but log it
+      logger.warn('Loading wave data from localhost - ensure this is intentional');
+    }
+    
+    // Block private IP ranges (10.x.x.x, 172.16-31.x.x, 192.168.x.x)
+    const privateIpPattern = /^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)/;
+    if (privateIpPattern.test(hostname)) {
+      throw new Error('Private IP addresses are not allowed');
+    }
+    
   } catch (error) {
-    throw new Error(`Invalid or unsafe URL: ${error instanceof Error ? error.message : String(error)}`);
+    if (error instanceof TypeError && error.message.includes('Invalid URL')) {
+      throw new Error('Invalid URL format');
+    }
+    throw error;
   }
 }
 
 /**
- * Load waves from a JSON5 file with security validation
+ * Load waves from a JSON5 file with security validation and rate limiting
  */
 export async function loadWaves(url: string): Promise<Wave[]> {
-  try {
+  const result = await ErrorHandler.execute('Waves.loadWaves', async () => {
     // Validate URL before fetching
     validateWaveUrl(url);
+    
+    // Check rate limiting
+    const rateLimitKey = getRateLimitKey(url);
+    if (!urlRateLimiter.isAllowed(rateLimitKey)) {
+      const resetTime = urlRateLimiter.getResetTime(rateLimitKey);
+      throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(resetTime / 1000)} seconds before trying again.`);
+    }
     
     const response = await fetch(url);
     
@@ -47,7 +81,7 @@ export async function loadWaves(url: string): Promise<Wave[]> {
     const contentLength = response.headers.get('content-length');
     if (contentLength) {
       const size = parseInt(contentLength, 10);
-      if (size > MAX_WAVE_FILE_SIZE) {
+      if (isNaN(size) || size > MAX_WAVE_FILE_SIZE) {
         throw new Error(`Wave file too large: ${size} bytes (max: ${MAX_WAVE_FILE_SIZE})`);
       }
     }
@@ -62,28 +96,49 @@ export async function loadWaves(url: string): Promise<Wave[]> {
     let totalSize = 0;
     const decoder = new TextDecoder();
     
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      
-      totalSize += value.length;
-      if (totalSize > MAX_WAVE_FILE_SIZE) {
-        reader.cancel();
-        throw new Error(`Wave file exceeded maximum size: ${MAX_WAVE_FILE_SIZE} bytes`);
+    try {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        if (!value) {
+          continue; // Skip empty chunks
+        }
+        
+        totalSize += value.length;
+        if (totalSize > MAX_WAVE_FILE_SIZE) {
+          await reader.cancel();
+          throw new Error(`Wave file exceeded maximum size: ${MAX_WAVE_FILE_SIZE} bytes`);
+        }
+        
+        text += decoder.decode(value, { stream: true });
       }
       
-      text += decoder.decode(value, { stream: true });
+      // Final decode for any remaining data
+      text += decoder.decode();
+    } catch (readError) {
+      // Ensure reader is cancelled on error
+      try {
+        await reader.cancel();
+      } catch {
+        // Ignore cancel errors
+      }
+      throw readError;
     }
     
-    // Final decode for any remaining data
-    text += decoder.decode();
+    // Parse JSON5 with error handling
+    let json: unknown;
+    try {
+      json = JSON5.parse(text);
+    } catch (parseError) {
+      throw new Error(`Failed to parse wave data: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+    }
     
-    const json = JSON5.parse(text);
     return parseWaves(json);
-  } catch (error) {
-    console.error('Failed to load waves:', error);
-    return [];
-  }
+  }, []);
+  
+  return result ?? [];
 }
 
 /**
